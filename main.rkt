@@ -80,6 +80,28 @@
 
 (send f show #t)
 
+(define keymap (new keymap%))
+(add-text-keymap-functions keymap)
+(send keymap map-function "c:c" "copy-clipboard")
+(send keymap map-function "c:x" "cut-clipboard")
+(send keymap map-function "c:v" "paste-clipboard")
+(send keymap map-function "c:z" "undo")
+(send keymap map-function "c:Z" "redo")
+(send keymap map-function "c:left" "backward-word")
+(send keymap map-function "c:right" "forward-word")
+(send keymap map-function "c:s:left" "backward-select-word")
+(send keymap map-function "c:s:right" "forward-select-word")
+(send keymap map-function "home" "beginning-of-line")
+(send keymap map-function "end" "end-of-line")
+(send keymap map-function "s:home" "select-to-beginning-of-line")
+(send keymap map-function "s:end" "select-to-end-of-line")
+(send keymap add-function "save-file"
+      (lambda (object key-event)
+        (display-to-file (send object get-text) file-to-open #:mode 'binary #:exists 'replace)))
+(send keymap map-function "c:s" "save-file")
+(send t set-keymap keymap)
+(send t set-max-undo-history 'forever) ; enable undo/redo
+
 ; Call the user's config if it exists
 (define-namespace-anchor a)
 (let ([config-rkts (build-path config-dir "config.rkts")])
