@@ -41,11 +41,9 @@
 (define c (new editor-canvas% [parent f]))
 (define my-text% (class text%
                    (super-new)
-                   (define/augment (after-delete start len)
+                   (define/private (highlight-range #:start [start 0] #:end [end 'eof])
                      (define cur_offset 0)
-                     (let* ([line-start (send this line-start-position (send this position-line start))]
-                            [line-end (send this line-end-position (send this position-line start))]
-                            [text (send this get-text line-start line-end #t)]
+                     (let* ([text (send this get-text start end #t)]
                             [highlighted (highlight_string text file-ext syntaxes themes)])
                        (for ([i (Highlighted-count highlighted)])
                          (let* ([line (ptr-ref (Highlighted-lines highlighted) _StyledString i)]
@@ -54,23 +52,16 @@
                                 [line-text (StyledString-string line)])
                            (define d (new style-delta%))
                            (send d set-delta-foreground (make-object color% (Color-r foreground) (Color-g foreground) (Color-b foreground)))
-                           (send this change-style d (+ line-start cur_offset) (+ line-start cur_offset (string-length line-text)))
+                           (send this change-style d (+ start cur_offset) (+ start cur_offset (string-length line-text)))
                            (set! cur_offset (+ cur_offset (string-length line-text)))))))
+                   (define/augment (after-delete start len)
+                     (let ([start-pos (send this line-start-position (send this position-line start))]
+                           [end-pos (send this line-end-position (send this position-line start))])
+                       (highlight-range #:start start-pos #:end end-pos)))
                    (define/augment (after-insert start len)
-                     (define cur_offset 0)
-                     (let* ([line-start (send this line-start-position (send this position-line start))]
-                            [line-end (send this line-end-position (send this position-line (+ start len)))]
-                            [text (send this get-text line-start line-end #t)]
-                            [highlighted (highlight_string text file-ext syntaxes themes)])
-                       (for ([i (Highlighted-count highlighted)])
-                         (let* ([line (ptr-ref (Highlighted-lines highlighted) _StyledString i)]
-                                [style (StyledString-style line)]
-                                [foreground (Style-foreground style)]
-                                [line-text (StyledString-string line)])
-                           (define d (new style-delta%))
-                           (send d set-delta-foreground (make-object color% (Color-r foreground) (Color-g foreground) (Color-b foreground)))
-                           (send this change-style d (+ line-start cur_offset) (+ line-start cur_offset (string-length line-text)))
-                           (set! cur_offset (+ cur_offset (string-length line-text)))))))))
+                     (let ([start-pos (send this line-start-position (send this position-line start))]
+                           [end-pos (send this line-end-position (send this position-line (+ start len)))])
+                       (highlight-range #:start start-pos #:end end-pos)))))
 (define t (new my-text%))
 (send c set-editor t)
 
