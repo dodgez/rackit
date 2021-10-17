@@ -1,0 +1,3 @@
+[submodule "syntect-easy-ffi"]
+	path = syntect-easy-ffi
+	url = https://github.com/dodgez/syntect-easy-ffi
