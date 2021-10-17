@@ -89,3 +89,4 @@
 
 (ignore-result (send t insert-file file-to-open))
 (send t move-position 'home)
+(send c focus)
