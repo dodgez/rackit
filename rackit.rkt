@@ -6,7 +6,8 @@
 
 (provide
  run-rackit
- get-frame)
+ get-frame
+ set-theme)
 
 (define-ffi-definer define-syntect-easy
   (ffi-lib (if (eq? (system-type 'os) 'windows) "syntect_easy_ffi" "libsyntect_easy_ffi")
@@ -34,10 +35,24 @@
 
 (define-syntax-rule (ignore-result body ...) ((lambda () body ... (void))))
 
-(define (get-frame) f)
-(define f (void))
+(define (get-frame) frame)
+(define frame (void))
+(define editor-canvas (void))
+(define text (void))
 
-(define theme "Dracula")
+(define theme "Solarized (light)")
+(define (set-theme new-theme)
+  (set! theme new-theme)
+  (let* ([bg (get_theme_setting theme-dir theme "background")]
+         [bg-color (OptionColor-color bg)]
+         [fg (get_theme_setting theme-dir theme "foreground")]
+         [fg-color (OptionColor-color fg)])
+    (when (eq? (OptionColor-present bg) 1)
+      (send editor-canvas set-canvas-background (make-object color% (Color-r bg-color) (Color-g bg-color) (Color-b bg-color))))
+    (when (eq? (OptionColor-present fg) 1)
+      (define d (new style-delta%))
+      (send d set-delta-foreground (make-object color% (Color-r fg-color) (Color-g fg-color) (Color-b fg-color)))
+      (send text change-style d))))
 
 (define (run-rackit #:init [init (lambda () (void))] #:config [config (lambda () (void))])
   (init)
@@ -50,12 +65,8 @@
   (define file-ext (last (string-split file-to-open ".")))
   (define content (file->string file-to-open))
 
-  (set! f (new frame% [label "Rackit"] [width 800] [height 600]))
-  (define c (new editor-canvas% [parent f]))
-  (let* ([bg (get_theme_setting theme-dir theme "background")]
-        [bg-color (OptionColor-color bg)])
-        (when (eq? (OptionColor-present bg) 1)
-          (send c set-canvas-background (make-object color% (Color-r bg-color) (Color-g bg-color) (Color-b bg-color)))))
+  (set! frame (new frame% [label "Rackit"] [width 800] [height 600]))
+  (set! editor-canvas (new editor-canvas% [parent frame]))
   (define my-text% (class text%
                      (super-new)
                      (define/private (highlight-range #:start [start 0] #:end [end 'eof])
@@ -81,18 +92,14 @@
                        (let ([start-pos (send this line-start-position (send this position-line start))]
                              [end-pos (send this line-end-position (send this position-line (+ start len)))])
                          (highlight-range #:start start-pos #:end end-pos)))))
-  (define t (new my-text%))
-  (send c set-editor t)
+  (set! text (new my-text%))
+  (send editor-canvas set-editor text)
 
   (define d (new style-delta%))
   (send d set-face "Hack Nerd Font Mono")
-  (let* ([fg (get_theme_setting theme-dir theme "foreground")]
-        [fg-color (OptionColor-color fg)])
-        (when (eq? (OptionColor-present fg) 1)
-          (send d set-delta-foreground (make-object color% (Color-r fg-color) (Color-g fg-color) (Color-b fg-color)))))
-  (send t change-style d)
+  (send text change-style d)
 
-  (send f show #t)
+  (send frame show #t)
 
   (config)
 
@@ -124,10 +131,11 @@
               (send object insert-file file-to-open)
               (current-directory (build-path file-to-open 'up))))))
   (send keymap map-function "c:o" "open-file")
-  (send t set-keymap keymap)
-  (send t set-max-undo-history 'forever) ; enable undo/redo
+  (send text set-keymap keymap)
+  (send text set-max-undo-history 'forever) ; enable undo/redo
 
-  (ignore-result (send t insert-file file-to-open))
+  (set-theme theme)
+  (ignore-result (send text insert-file file-to-open))
   (current-directory (build-path file-to-open 'up))
-  (send t move-position 'home)
-  (send c focus))
+  (send text move-position 'home)
+  (send editor-canvas focus))
