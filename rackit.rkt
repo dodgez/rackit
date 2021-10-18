@@ -17,22 +17,27 @@
                                     (get-lib-search-dirs)))))
 
 (define-cstruct _Color ([r _uint8] [g _uint8] [b _uint8] [a _uint8]))
+(define-cstruct _OptionColor ([present _uint8] [color _Color]))
 (define-cstruct _Style ([foreground _Color] [background _Color] [font-style _uint8]))
 (define-cstruct _StyledString ([style _Style] [string _string/utf-8]))
 (define-cstruct _Highlighted ([lines _StyledString-pointer] [count _size]))
 
 (define-syntect-easy load_default_syntaxes (_fun _string/utf-8 -> _pointer))
 (define-syntect-easy load_default_themes (_fun _string/utf-8 -> _pointer))
-(define-syntect-easy highlight_string (_fun _string/utf-8 _string/utf-8 _pointer _pointer -> _Highlighted))
+(define-syntect-easy get_theme_setting (_fun _string/utf-8 _string/utf-8 _string/utf-8 -> _OptionColor))
+(define-syntect-easy highlight_string (_fun _string/utf-8 _string/utf-8 _string/utf-8 _pointer _pointer -> _Highlighted))
 
 (define config-dir (build-path (find-system-path 'home-dir) ".config/rackit"))
+(define theme-dir (path->string (build-path config-dir "themes")))
 (define syntaxes (load_default_syntaxes (path->string (build-path config-dir "syntaxes"))))
-(define themes (load_default_themes (path->string (build-path config-dir "themes"))))
+(define themes (load_default_themes theme-dir))
 
 (define-syntax-rule (ignore-result body ...) ((lambda () body ... (void))))
 
 (define (get-frame) f)
 (define f (void))
+
+(define theme "Dracula")
 
 (define (run-rackit #:init [init (lambda () (void))] #:config [config (lambda () (void))])
   (init)
@@ -47,19 +52,25 @@
 
   (set! f (new frame% [label "Rackit"] [width 800] [height 600]))
   (define c (new editor-canvas% [parent f]))
+  (let* ([bg (get_theme_setting theme-dir theme "background")]
+        [bg-color (OptionColor-color bg)])
+        (when (eq? (OptionColor-present bg) 1)
+          (send c set-canvas-background (make-object color% (Color-r bg-color) (Color-g bg-color) (Color-b bg-color)))))
   (define my-text% (class text%
                      (super-new)
                      (define/private (highlight-range #:start [start 0] #:end [end 'eof])
                        (define cur_offset 0)
                        (let* ([text (send this get-text start end #t)]
-                              [highlighted (highlight_string text file-ext syntaxes themes)])
+                              [highlighted (highlight_string text file-ext theme syntaxes themes)])
                          (for ([i (Highlighted-count highlighted)])
                            (let* ([line (ptr-ref (Highlighted-lines highlighted) _StyledString i)]
                                   [style (StyledString-style line)]
                                   [foreground (Style-foreground style)]
+                                  [background (Style-background style)]
                                   [line-text (StyledString-string line)])
                              (define d (new style-delta%))
                              (send d set-delta-foreground (make-object color% (Color-r foreground) (Color-g foreground) (Color-b foreground)))
+                             (send d set-delta-background (make-object color% (Color-r background) (Color-g background) (Color-b background)))
                              (send this change-style d (+ start cur_offset) (+ start cur_offset (string-length line-text)))
                              (set! cur_offset (+ cur_offset (string-length line-text)))))))
                      (define/augment (after-delete start len)
@@ -75,6 +86,10 @@
 
   (define d (new style-delta%))
   (send d set-face "Hack Nerd Font Mono")
+  (let* ([fg (get_theme_setting theme-dir theme "foreground")]
+        [fg-color (OptionColor-color fg)])
+        (when (eq? (OptionColor-present fg) 1)
+          (send d set-delta-foreground (make-object color% (Color-r fg-color) (Color-g fg-color) (Color-b fg-color)))))
   (send t change-style d)
 
   (send f show #t)
