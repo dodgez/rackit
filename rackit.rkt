@@ -9,7 +9,7 @@
  get-frame)
 
 (define-ffi-definer define-syntect-easy
-  (ffi-lib "syntect_easy_ffi"
+  (ffi-lib (if (eq? (system-type 'os) 'windows) "syntect_easy_ffi" "libsyntect_easy_ffi")
            #:get-lib-dirs (lambda ()
                             (append (list
                                      (string->path "./syntect-easy-ffi/target/debug")
