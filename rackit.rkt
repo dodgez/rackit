@@ -116,9 +116,18 @@
         (lambda (object key-event)
           (display-to-file (send object get-text) file-to-open #:mode 'binary #:exists 'replace)))
   (send keymap map-function "c:s" "save-file")
+  (send keymap add-function "open-file"
+        (lambda (object key-event)
+          (let ([file-to-open (get-file "Open file" (get-frame) (current-directory))])
+            (when file-to-open
+              (send object erase)
+              (send object insert-file file-to-open)
+              (current-directory (build-path file-to-open 'up))))))
+  (send keymap map-function "c:o" "open-file")
   (send t set-keymap keymap)
   (send t set-max-undo-history 'forever) ; enable undo/redo
 
   (ignore-result (send t insert-file file-to-open))
+  (current-directory (build-path file-to-open 'up))
   (send t move-position 'home)
   (send c focus))
