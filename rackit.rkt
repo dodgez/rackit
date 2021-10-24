@@ -63,7 +63,6 @@
      filename))
 
   (define file-ext (last (string-split file-to-open ".")))
-  (define content (file->string file-to-open))
 
   (set! frame (new frame% [label "Rackit"] [width 800] [height 600]))
   (set! editor-canvas (new editor-canvas% [parent frame]))
@@ -125,11 +124,13 @@
   (send keymap map-function "c:s" "save-file")
   (send keymap add-function "open-file"
         (lambda (object key-event)
-          (let ([file-to-open (get-file "Open file" (get-frame) (current-directory))])
-            (when file-to-open
+          (let ([file (get-file "Open file" (get-frame) (current-directory))])
+            (when file
+              (set! file-to-open (path->string file))
+              (set! file-ext (last (string-split file-to-open ".")))
               (send object erase)
-              (send object insert-file file-to-open)
-              (current-directory (build-path file-to-open 'up))))))
+              (send object insert-file file)
+              (current-directory (build-path file 'up))))))
   (send keymap map-function "c:o" "open-file")
   (send text set-keymap keymap)
   (send text set-max-undo-history 'forever) ; enable undo/redo
